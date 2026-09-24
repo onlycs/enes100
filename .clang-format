@@ -1,0 +1,5 @@
+# Formatting for .ino sketches, applied by clangd on save.
+BasedOnStyle: Google
+IndentWidth: 2
+ColumnLimit: 100
+AllowShortFunctionsOnASingleLine: Empty

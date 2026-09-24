@@ -1,0 +1,42 @@
+[
+  {
+    "label": "Arduino: upload current sketch",
+    "command": "make",
+    "args": [
+      "$ZED_DIRNAME"
+    ],
+    "reveal": "always"
+  },
+  {
+    "label": "Arduino: upload starter",
+    "command": "make",
+    "args": [
+      "starter"
+    ],
+    "reveal": "always"
+  },
+  {
+    "label": "Arduino: refresh completion (make db)",
+    "command": "make",
+    "args": [
+      "db"
+    ],
+    "reveal": "always"
+  },
+  {
+    "label": "Arduino: list boards",
+    "command": "make",
+    "args": [
+      "boards"
+    ],
+    "reveal": "always"
+  },
+  {
+    "label": "Arduino: first-time setup",
+    "command": "make",
+    "args": [
+      "setup"
+    ],
+    "reveal": "always"
+  }
+]

@@ -1,0 +1,20 @@
+{
+  // .ino is C++ as far as the editor is concerned: clangd reads the
+  // compile_commands.json that `make` writes at the repo root, which is what
+  // resolves Arduino.h, the core sources and any installed library.
+  "file_types": {
+    "C++": ["ino", "pde"]
+  },
+  "lsp": {
+    "clangd": {
+      "binary": {
+        "path_lookup": true
+      }
+    }
+  },
+  "languages": {
+    "C++": {
+      "tab_size": 2
+    }
+  }
+}
