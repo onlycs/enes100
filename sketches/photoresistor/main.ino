@@ -1,6 +1,3 @@
-#include <cstdint>
-
-#include "api/Common.h"
 const uint8_t PIN = A0;
 const uint32_t BAUD = 115200;
 

@@ -1,9 +1,23 @@
-FQBN     ?= arduino:renesas_uno:unor4wifi
 WARNINGS ?= default
 BAUD     ?= 115200
-PORT     ?= $(firstword $(wildcard /dev/ttyACM* /dev/ttyUSB*))
 
-CORE := $(firstword $(subst :, ,$(FQBN))):$(word 2,$(subst :, ,$(FQBN)))
+# Board autodetection: `arduino-cli board list` names both the port and the FQBN
+# of whatever is plugged in, so neither is hardcoded. Override either one on the
+# command line (make starter PORT=/dev/ttyACM1 FQBN=arduino:avr:uno) when
+# detection guesses wrong or the board can't identify itself. FQBN_FALLBACK is
+# what targets like `setup` use with nothing connected.
+FQBN_FALLBACK  ?= arduino:renesas_uno:unor4wifi
+BOARD_TIMEOUT  ?= 2s
+BOARD_JQ := [.detected_ports[]? | select(.matching_boards[0].fqbn)][0] // empty | .port.address + " " + .matching_boards[0].fqbn
+
+# Detected lazily and at most once per run, so targets that never look at PORT
+# or FQBN (clean, cdb-merge) pay nothing for the discovery wait.
+BOARD = $(if $(filter undefined,$(origin BOARD_CACHE)),$(eval BOARD_CACHE := $(shell arduino-cli board list --discovery-timeout $(BOARD_TIMEOUT) --json 2>/dev/null | jq -r '$(BOARD_JQ)')))$(BOARD_CACHE)
+
+PORT ?= $(firstword $(BOARD))
+FQBN ?= $(or $(word 2,$(BOARD)),$(FQBN_FALLBACK))
+
+CORE = $(firstword $(subst :, ,$(FQBN))):$(word 2,$(subst :, ,$(FQBN)))
 
 # One sketch per folder, always sketches/<name>/main.ino.
 SKETCH_DIRS := $(patsubst %/,%,$(sort $(dir $(wildcard sketches/*/main.ino))))
@@ -38,12 +52,12 @@ $(1) $(CURDIR)/sketches/$(1): require-port stage-$(1)
 	@$$(MAKE) --no-print-directory cdb-merge
 endef
 
-nullopt:
+noop:
 	@echo "specify bro"
 
 $(foreach s,$(SKETCHES),$(eval $(call sketch_target,$(s))))
 
-setup:
+setup: db
 	arduino-cli config init --overwrite
 	arduino-cli core update-index
 	arduino-cli core install $(CORE)
@@ -54,12 +68,9 @@ boards:
 libs:
 	arduino-cli lib list
 
-# Serial monitor; the sketch's Serial.begin() must match BAUD.
 serial: require-port
 	arduino-cli monitor --fqbn $(FQBN) --port $(PORT) --config baudrate=$(BAUD)
 
-# Refresh editor completion for every sketch: needed after adding a sketch or a
-# library. A plain `make <sketch>` already refreshes the sketch it builds.
 db: $(addprefix stage-,$(SKETCHES))
 	@for s in $(SKETCHES); do \
 		echo "compile database: $$s"; \
@@ -78,4 +89,4 @@ distclean: clean
 	rm -rf .arduino arduino-cli.yaml
 
 require-port:
-	@test -n "$(PORT)" || { echo "No board found. Plug the Uno in, or pass PORT=/dev/ttyACM0"; exit 1; }
+	@test -n "$(PORT)" || { echo "No board detected. Plug it in (make boards to check), or pass PORT=/dev/ttyACM0"; exit 1; }
