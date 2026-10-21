@@ -25,6 +25,8 @@
           pyright
           ruff
 
+          watchexec
+
           nil
           nixd
         ];
