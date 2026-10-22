@@ -1,7 +1,14 @@
-.PHONY: flash dev
+MPREMOTE ?= mpremote
+PORT     ?= auto
+MP        = $(MPREMOTE) connect $(PORT)
+
+.PHONY: setup flash dev
 
 flash:
-	mpremote cp -r src/. : + reset
+	$(MP) cp -r src/. : + reset
+
+setup:
+	$(MP) mip install github:josverl/micropython-stubs/mip/typing.json
 
 dev:
-	watchexec -r -w src -- mpremote mount src + run src/main.py
+	watchexec -r -w src -- $(MP) mount src + run src/main.py

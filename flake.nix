@@ -29,6 +29,8 @@
 
           nil
           nixd
+
+          gnumake
         ];
       in
       {
@@ -40,7 +42,6 @@
               virtualenv .venv
               .venv/bin/pip install -q micropython-rp2-pico_w-stubs
             fi
-            nu -c "overlay use .venv/bin/activate.nu"
           '';
         };
       }
