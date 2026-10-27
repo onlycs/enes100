@@ -9,6 +9,7 @@ flash:
 
 setup:
 	$(MP) mip install github:josverl/micropython-stubs/mip/typing.json
+	$(MP) mip install logging
 
 dev:
 	watchexec -r -w src -- $(MP) mount src + run src/main.py

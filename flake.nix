@@ -40,7 +40,7 @@
           shellHook = ''
             if [ ! -d .venv ]; then
               virtualenv .venv
-              .venv/bin/pip install -q micropython-rp2-pico_w-stubs
+              .venv/bin/pip install -q micropython-rp2-rpi_pico2-stubs
             fi
           '';
         };

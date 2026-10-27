@@ -1,6 +1,5 @@
 import asyncio
 import time
-from typing import Generic, TypeVar
 
 from machine import UART
 
@@ -8,7 +7,6 @@ from .types import Pose
 
 FLUSH = b"\xff\xfe\xfd\xfc"
 MISSION_FIRE = 0x03
-T = TypeVar("T")
 
 
 async def read(uart: UART, n: int, timeout_ms: int) -> bytes | None:
@@ -57,20 +55,20 @@ def drain(uart: UART):
         uart.read()
 
 
-class Response(Generic[T]):
+class Response:
     TIMEOUT: int
     BYTES: int
 
     @staticmethod
-    def _parse(data: bytes | None) -> T | None:
+    def _parse(data: bytes | None):
         raise NotImplementedError()
 
     @classmethod
-    def read_blocking(cls, uart: UART) -> T | None:
+    def read_blocking(cls, uart: UART):
         return cls._parse(read_blocking(uart, cls.BYTES, cls.TIMEOUT))
 
     @classmethod
-    async def read(cls, uart: UART) -> T | None:
+    async def read(cls, uart: UART):
         return cls._parse(await read(uart, cls.BYTES, cls.TIMEOUT))
 
 
@@ -82,7 +80,7 @@ class IsConnected:
         uart.write(bytes([self.OPCODE]))
 
 
-class StateResponse(Response[int]):
+class StateResponse(Response):
     TIMEOUT = 100
     BYTES = 1
 
@@ -122,7 +120,7 @@ class Check:
         uart.write(bytes([self.OPCODE]))
 
 
-class PoseStatus(Response[int]):
+class PoseStatus(Response):
     TIMEOUT = 10
     BYTES = 1
 
@@ -138,7 +136,7 @@ class PoseStatus(Response[int]):
         return data[0]
 
 
-class PoseFound(Response[Pose]):
+class PoseFound(Response):
     TIMEOUT = 30
     BYTES = 5
 
@@ -189,6 +187,18 @@ class MissionFacing(MissionMessage):
         return f"The topography of the fire mission is:  {self.facing}"
 
 
+class Print:
+    OPCODE = 0x02
+
+    def __init__(self, msg: str) -> None:
+        self.msg = msg
+
+    def write(self, uart: UART):
+        uart.write(bytes([Print.OPCODE]))
+        uart.write(f"{self.msg}\n\0".encode())
+        uart.write(FLUSH)
+
+
 class MLPredict:
     OPCODE = 0x05
 
@@ -202,7 +212,7 @@ class MLPredict:
         uart.write(FLUSH)
 
 
-class MLPrediction(Response[int]):
+class MLPrediction(Response):
     TIMEOUT = 500
     BYTES = 2
 
