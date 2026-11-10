@@ -6,11 +6,14 @@ from ultrasonic import HCSR04
 
 class Inputs:
     def __init__(
-        self, ml: LibML, flames: list[Flame], ultrasonics: list[HCSR04]
+        self, ml: LibML, flames: list[Flame], ultrasonics: list[HCSR04], dt: float
     ) -> None:
+        """Reads a snapshots of inputs from devices"""
+
         self.pose = ml.pose()
         self.flames = [fl.read() for fl in flames]
         self.ultrasonics = [us.distance_cm for us in ultrasonics]
+        self.dt = dt
 
 
 class Outputs:
@@ -31,7 +34,7 @@ class State:
     def create(cls):
         return cls()
 
-    async def onenter(self, _inputs: Inputs) -> Outputs:
+    async def onenter(self, _inputs: Inputs):
         return Outputs()
 
     async def ontick(self, _inputs: Inputs) -> Outputs:

@@ -123,9 +123,10 @@ class LibML:
         with self._pose as pose:
             return pose + APRILTAG_TO_ROBOT_COR
 
-    async def print(self, message: str) -> None:
+    async def print(self, message: str | op.Print) -> None:
         async with self.uart as uart:
-            op.Print(message).write(uart)
+            print = op.Print(message) if isinstance(message, str) else message
+            print.write(uart)
 
     async def predict(self) -> int | None:
         async with self.uart as uart:
