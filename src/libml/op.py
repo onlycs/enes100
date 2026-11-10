@@ -4,7 +4,7 @@ from typing import override
 
 from machine import UART
 
-from .types import Pose
+from mission.helpers import Pose2d
 
 FLUSH = b"\xff\xfe\xfd\xfc"
 MISSION_FIRE = 0x03
@@ -145,7 +145,7 @@ class PoseFound(Response):
 
     @staticmethod
     @override
-    def _parse(data: bytes | None) -> Pose | None:
+    def _parse(data: bytes | None) -> Pose2d | None:
         if data is None:
             return
 
@@ -153,7 +153,7 @@ class PoseFound(Response):
         x = (data[1] | (data[2] << 8)) / 100
         t = s16(data[3], data[4]) / 100
 
-        return Pose(x, y, t)
+        return Pose2d.from_trio(x, y, t)
 
 
 class Print:

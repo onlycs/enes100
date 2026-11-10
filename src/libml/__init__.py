@@ -5,9 +5,11 @@ import time
 
 from machine import UART
 
-from mission.helpers import Pose
+from mission.helpers import Pose2d, Transform2d
 
 from . import op
+
+APRILTAG_TO_ROBOT_COR = Transform2d((0, 0))
 
 
 class Locked:
@@ -117,9 +119,9 @@ class LibML:
         async with self.uart as uart:
             message.write(uart)
 
-    def pose(self) -> Pose | None:
+    def pose(self) -> Pose2d | None:
         with self._pose as pose:
-            return pose
+            return pose + APRILTAG_TO_ROBOT_COR
 
     async def print(self, message: str) -> None:
         async with self.uart as uart:

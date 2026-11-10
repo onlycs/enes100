@@ -18,17 +18,25 @@ setup: typeshed
 	$(MP) mip install logging
 	$(MP) mip install github:gastmaier/micropython-simple-pid/simple_pid/PID.py@master
 
-typeshed: Makefile stubs/PID.pyi
+typeshed: Makefile stubs/PID.pyi stubs/ndarray.pyi
 	rm -rf typeshed
-	python3 -m pip install micropython-typeshed --target typeshed --no-user
-	install -D stubs/PID.pyi typeshed/stubs/simple-pid/PID.pyi
-	git clone -q --depth 1 --filter=blob:none --sparse \
-		https://github.com/Josverl/micropython-stubs.git /tmp/micropython-stubs
-	git -C /tmp/micropython-stubs sparse-checkout set stubs/micropython-ulab
-	mkdir -p typeshed/stubs/ulab
-	cp -r /tmp/micropython-stubs/stubs/micropython-ulab/ulab typeshed/stubs/ulab/
-	rm -rf /tmp/micropython-stubs
+	python3 -m pip install -q --no-user --target typeshed micropython-typeshed
 
+	install -D stubs/PID.pyi typeshed/stubs/simple-pid/PID.pyi
+
+	@set -eu; \
+	tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	python3 -m pip install -q --no-user --no-deps --target "$$tmp" circuitpython-stubs; \
+	test -f "$$tmp/ulab-stubs/numpy/__init__.pyi" || { echo "ulab.numpy stubs not found" >&2; exit 1; }; \
+	cp -R "$$tmp/ulab-stubs" typeshed/stdlib/ulab; \
+	echo "ulab: 3.0-" >> typeshed/stdlib/VERSIONS; \
+	sed -i.bak 's/^import ulab$$/import ulab.numpy/' typeshed/stdlib/ulab/numpy/__init__.pyi; \
+	sed -i.bak '/^class ndarray: \.\.\.$$/d' typeshed/stdlib/ulab/numpy/__init__.pyi; \
+	rm -f typeshed/stdlib/ulab/numpy/__init__.pyi.bak; \
+	cat stubs/ndarray.pyi >> typeshed/stdlib/ulab/numpy/__init__.pyi
+
+	@echo "MicroPython typeshed ready."
 
 dev:
 	watchexec -r -w src -- $(MP) mount src + run src/main.py
