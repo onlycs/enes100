@@ -1,5 +1,6 @@
 import asyncio
 import time
+from typing import override
 
 from machine import UART
 
@@ -60,7 +61,7 @@ class Response:
     BYTES: int
 
     @staticmethod
-    def _parse(data: bytes | None):
+    def _parse(_data: bytes | None):
         raise NotImplementedError()
 
     @classmethod
@@ -88,6 +89,7 @@ class StateResponse(Response):
     CONNECTED = 0x01
 
     @staticmethod
+    @override
     def _parse(data: bytes | None) -> int | None:
         if data is None or data[0] not in (0x00, 0x01):
             return None
@@ -129,6 +131,7 @@ class PoseStatus(Response):
     FOUND = 0x02
 
     @staticmethod
+    @override
     def _parse(data: bytes | None) -> int | None:
         if data is None:
             return None
@@ -141,6 +144,7 @@ class PoseFound(Response):
     BYTES = 5
 
     @staticmethod
+    @override
     def _parse(data: bytes | None) -> Pose | None:
         if data is None:
             return
@@ -152,41 +156,6 @@ class PoseFound(Response):
         return Pose(x, y, t)
 
 
-class MissionMessage:
-    OP: int = 0x02
-
-    def fmt(self) -> str:
-        raise NotImplementedError()
-
-    def write(self, uart: UART):
-        drain(uart)
-        uart.write(bytes([MissionMessage.OP]))
-        uart.write(f"MISSION MESSAGE: {self.fmt()}\n\0".encode())
-        uart.write(FLUSH)
-
-
-class MissionCandles(MissionMessage):
-    def __init__(self, num: int):
-        super().__init__()
-        self.num = max(min(num, 4), 0)
-
-    def fmt(self) -> str:
-        return f"The number of candles lit is {self.num}."
-
-
-class MissionFacing(MissionMessage):
-    def __init__(self, facing: str):
-        super().__init__()
-
-        if facing not in ["A", "B", "C"]:
-            facing = "A"
-
-        self.facing = facing
-
-    def fmt(self) -> str:
-        return f"The topography of the fire mission is:  {self.facing}"
-
-
 class Print:
     OPCODE = 0x02
 
@@ -194,9 +163,42 @@ class Print:
         self.msg = msg
 
     def write(self, uart: UART):
-        uart.write(bytes([Print.OPCODE]))
-        uart.write(f"{self.msg}\n\0".encode())
-        uart.write(FLUSH)
+        drain(uart)
+        uart.write(bytes([Print.OPCODE]) + self.msg.encode("utf-8") + b"\n\x00" + FLUSH)
+
+
+class MissionMessage(Print):
+    OP: int = 0x02
+
+    def __init__(self) -> None:
+        super().__init__(self.fmt())
+
+    def fmt(self) -> str:
+        raise NotImplementedError()
+
+
+class MissionCandles(MissionMessage):
+    def __init__(self, num: int):
+        self.num = max(min(num, 4), 0)
+        super().__init__()
+
+    @override
+    def fmt(self) -> str:
+        return f"The number of candles lit is {self.num}."
+
+
+class MissionFacing(MissionMessage):
+    def __init__(self, facing: str):
+        if facing not in ["A", "B", "C"]:
+            facing = "A"
+
+        self.facing = facing
+
+        super().__init__()
+
+    @override
+    def fmt(self) -> str:
+        return f"The topography of the fire mission is:  {self.facing}"
 
 
 class MLPredict:
@@ -217,6 +219,7 @@ class MLPrediction(Response):
     BYTES = 2
 
     @staticmethod
+    @override
     def _parse(data: bytes | None) -> int | None:
         if data is None:
             return

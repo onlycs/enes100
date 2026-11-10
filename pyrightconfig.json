@@ -7,7 +7,6 @@
   "reportUnknownMemberType": false,
   "reportUnusedCallResult": false,
   "reportUnannotatedClassAttribute": false,
-  "reportImplicitOverride": false,
   "reportUninitializedInstanceVariable": false,
   "reportImplicitRelativeImport": false,
   "reportUnknownVariableType": false,

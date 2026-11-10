@@ -5,8 +5,9 @@ import time
 
 from machine import UART
 
+from mission.helpers import Pose
+
 from . import op
-from .types import Pose
 
 
 class Locked:
