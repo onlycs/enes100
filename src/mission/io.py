@@ -1,3 +1,6 @@
+# ruff: noqa: UP035
+from typing import Callable, Generator  # pyright: ignore[reportDeprecated]
+
 from flame import Flame
 from libml import LibML
 from libml.op import Print
@@ -20,25 +23,12 @@ class Outputs:
     def __init__(
         self,
         *,
-        messages: list[Print] | None = None,
+        messages: list[Print | str] | None = None,
         motors: tuple[float, float] | None = None,
-        transition: type["State"] | None = None,
     ) -> None:
         self.messages = messages if messages is not None else []
         self.motors = motors
-        self.transition = transition
 
 
-class State:
-    @classmethod
-    def create(cls):
-        return cls()
-
-    async def onenter(self, _inputs: Inputs):
-        return Outputs()
-
-    async def ontick(self, _inputs: Inputs) -> Outputs:
-        return Outputs()
-
-    async def onexit(self, _inputs: Inputs) -> None:
-        pass
+State = Callable[[], "Routine"]
+Routine = Generator[Outputs, Inputs, State]

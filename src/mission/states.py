@@ -1,15 +1,14 @@
-from typing import override
-
-from mission.io import Inputs, Outputs, State
+from mission.io import Outputs, Routine
 
 
-class InitialState(State):
-    @override
-    async def ontick(self, inputs: Inputs) -> Outputs:
-        return Outputs(transition=NavigateToMission)
+def navigate() -> Routine:
+    yield Outputs()
+    return final
 
 
-class NavigateToMission(State):
-    @override
-    async def ontick(self, inputs: Inputs) -> Outputs:
-        return Outputs()
+def final() -> Routine:
+    """Since the state machine doesn't handle stopping, we can return this in order to effectively stop the machine"""
+    yield Outputs(messages=["The final state has been reached"], motors=(0, 0))
+
+    while True:
+        yield Outputs()

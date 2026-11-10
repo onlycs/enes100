@@ -1,9 +1,5 @@
-# ruff: noqa: UP035
-
-import asyncio
-from asyncio import Task
 from math import cos, degrees, radians, sin, tau
-from typing import Any, Coroutine, override  # pyright: ignore[reportDeprecated]
+from typing import override
 
 from ulab import numpy as np
 
@@ -193,14 +189,3 @@ class Pose2d:
     @override
     def __repr__(self) -> str:
         return self.__str__()
-
-
-class AsyncStack:
-    def __init__(self) -> None:
-        self.futures: list[Task] = []
-
-    def append(self, *other: Coroutine[Any, Any, Any]):
-        self.futures.extend(asyncio.create_task(o) for o in other)
-
-    async def join(self):
-        await asyncio.gather(*self.futures)
