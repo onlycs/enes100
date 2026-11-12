@@ -2,10 +2,11 @@ import asyncio
 import logging
 import time
 
-from flame import Flame
+from devices.flame import Flame
+from devices.motor import Drivetrain
+from devices.servo import DS3218
 from libml import LibML
 from mission.io import Inputs, Outputs, Routine, State, Ultrasonics
-from motor import Drivetrain
 
 EVENT_LOOP_MS = 20
 
@@ -23,14 +24,16 @@ class StateMachine:
         ml: LibML,
         flames: list[Flame],
         us: Ultrasonics,
-        dt: Drivetrain,
+        drive: Drivetrain,
+        servo: DS3218,
         initial: State,
     ):
-        self.state: Routine = _initial_state(initial)
+        self.state = _initial_state(initial)
         self.ml = ml
         self.flames = flames
         self.us = us
-        self.dt = dt
+        self.drive = drive
+        self.servo = servo
         self.last_tick = time.ticks_ms()
 
         next(self.state)
@@ -49,7 +52,10 @@ class StateMachine:
             outs = next(self.state)
 
         if outs.motors is not None:
-            self.dt.set(*outs.motors)
+            self.drive.set(*outs.motors)
+
+        if outs.servo_degrees is not None:
+            self.servo.write_angle(outs.servo_degrees)
 
         await asyncio.gather(*[self.ml.print(message) for message in outs.messages])
 

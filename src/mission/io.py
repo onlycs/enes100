@@ -1,10 +1,10 @@
 # ruff: noqa: UP035
 from typing import Callable, Generator, Sequence  # pyright: ignore[reportDeprecated]
 
-from flame import Flame
+from devices.flame import Flame
+from devices.ultrasonic import HCSR04
 from libml import LibML
 from libml.op import Print
-from ultrasonic import HCSR04
 
 
 class Ultrasonics:
@@ -23,7 +23,7 @@ class UltrasonicReadings:
 
 class Inputs:
     def __init__(
-        self, ml: LibML, flames: list[Flame], us: Ultrasonics, dt: float
+        self, ml: LibML, flames: list[Flame], us: Ultrasonics, dt: int
     ) -> None:
         """Reads a snapshots of inputs from devices"""
 
@@ -39,9 +39,11 @@ class Outputs:
         *,
         messages: Sequence[Print | str] | None = None,
         motors: tuple[float, float] | None = None,
+        servo_degrees: float | None = None,
     ) -> None:
         self.messages = messages if messages is not None else []
         self.motors = motors
+        self.servo_degrees = servo_degrees
 
 
 State = Callable[[], "Routine"]

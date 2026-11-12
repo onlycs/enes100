@@ -1,6 +1,7 @@
 # ruff: noqa: UP035
-from typing import Generator  # pyright: ignore[reportDeprecated]
+from typing import Callable, Generator  # pyright: ignore[reportDeprecated]
 
+from libml.op import MissionCandles
 from mission.helpers import PIDController, Pose2d, Rotation2d, signum
 from mission.io import Inputs, Outputs, Routine
 
@@ -32,6 +33,19 @@ def helper_require_pose(ins: Inputs) -> Generator[Outputs, Inputs, Pose2d]:
     return ins.pose
 
 
+def helper_wait_ms(
+    millis: int, callback: Callable[[Inputs], None] = lambda ins: None
+) -> Generator[Outputs, Inputs, int]:
+    waited = 0
+    while waited < millis:
+        ins = yield Outputs()
+
+        callback(ins)
+        waited += ins.dt
+
+    return waited
+
+
 def to_mission_site() -> Routine:
     MISSION_LINE_X = 0.5
     ABS_MISSION_FACING = Rotation2d.QUARTER
@@ -61,6 +75,26 @@ def to_mission_site() -> Routine:
     while not pid.at_target():
         calc = pid.calculate(ins.us.front)
         ins = yield Outputs(motors=(-calc, -calc))
+
+    # TODO: ML!!!!
+    return perform_mission
+
+
+def perform_mission() -> Routine:
+    SERVO_MILLIS = 5000
+
+    ins = yield Outputs(servo_degrees=180)
+    flames = list(ins.flames)
+
+    def update_flames(ins: Inputs):
+        for i, fl in enumerate(ins.flames):
+            flames[i] = flames[i] or fl
+
+    yield from helper_wait_ms(SERVO_MILLIS, update_flames)
+    total = sum(flames)
+
+    yield Outputs(messages=[MissionCandles(total)], servo_degrees=180)
+    yield from helper_wait_ms(SERVO_MILLIS)
 
     return final
 
