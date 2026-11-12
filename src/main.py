@@ -21,7 +21,7 @@ log = logging.getLogger("Mission")
 async def main():
     log.debug("FLO")
     await ml.handshake()
-    await ml.print("Got a connection!!")
+    await ml.print("Connected.")
 
     while True:
         print(ml.pose())

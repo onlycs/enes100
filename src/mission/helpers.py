@@ -1,6 +1,7 @@
-from math import cos, degrees, radians, sin, tau
+from math import atan2, cos, degrees, pi, radians, sin, tau
 from typing import override
 
+from PID import PID
 from ulab import numpy as np
 
 
@@ -50,6 +51,9 @@ class Transform2d:
     @property
     def y(self) -> float:
         return self.t[1]
+
+    def atan2(self) -> "Rotation2d":
+        return Rotation2d(atan2(self.y, self.x))
 
     @override
     def __str__(self) -> str:
@@ -179,13 +183,59 @@ class Pose2d:
         return self.t.y
 
     @property
-    def theta(self) -> float:
+    def radians(self) -> float:
         return self.r.theta
+
+    @property
+    def theta(self) -> Rotation2d:
+        return self.r
 
     @override
     def __str__(self) -> str:
-        return f"Pose(x={self.x}m, y={self.y}m, θ={self.theta}rad)"
+        return f"Pose(x={self.x}m, y={self.y}m, θ={self.radians}rad)"
 
     @override
     def __repr__(self) -> str:
         return self.__str__()
+
+
+class PIDController:
+    def __init__(
+        self,
+        kp: float,
+        ki: float,
+        kd: float,
+        setpoint: float,
+        tolerance: float,
+        output_limits: tuple[float, float] = (-1.0, 1.0),
+        is_angular: bool = False,
+    ) -> None:
+        def wrap_angle(err: float) -> float:
+            return (err + pi) % tau - pi
+
+        self.inner = PID(
+            kp,
+            ki,
+            kd,
+            setpoint=setpoint,
+            scale="ms",
+            output_limits=output_limits,
+            error_map=wrap_angle if is_angular else None,
+        )
+        self.tolerance = tolerance
+        self.error = float("inf")
+
+    def calculate(self, measurement: float):
+        self.error = self.inner.setpoint - measurement
+        if self.inner.error_map is not None:
+            self.error = self.inner.error_map(self.error)
+
+        out = self.inner(measurement)
+        return out if out is not None else 0.0
+
+    def at_target(self):
+        return abs(self.error) <= self.tolerance
+
+
+def signum(x: float):
+    return (x > 0) - (x < 0)

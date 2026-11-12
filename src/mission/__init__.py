@@ -4,11 +4,15 @@ import time
 
 from flame import Flame
 from libml import LibML
-from mission.io import Inputs, Outputs, Routine, State
+from mission.io import Inputs, Outputs, Routine, State, Ultrasonics
 from motor import Drivetrain
-from ultrasonic import HCSR04
 
 EVENT_LOOP_MS = 20
+
+
+def _initial_state(actual: State) -> Routine:
+    yield Outputs()
+    return actual
 
 
 class StateMachine:
@@ -18,22 +22,24 @@ class StateMachine:
         self,
         ml: LibML,
         flames: list[Flame],
-        ultrasonics: list[HCSR04],
+        us: Ultrasonics,
         dt: Drivetrain,
         initial: State,
     ):
-        self.state: Routine = initial()
+        self.state: Routine = _initial_state(initial)
         self.ml = ml
         self.flames = flames
-        self.ultrasonics = ultrasonics
+        self.us = us
         self.dt = dt
         self.last_tick = time.ticks_ms()
+
+        next(self.state)
 
     async def tick(self):
         dt = time.ticks_diff(time.ticks_ms(), self.last_tick)
         self.last_tick = time.ticks_ms()
 
-        ins: Inputs = Inputs(self.ml, self.flames, self.ultrasonics, dt)
+        ins: Inputs = Inputs(self.ml, self.flames, self.us, dt)
         outs: Outputs
 
         try:
