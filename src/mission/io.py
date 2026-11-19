@@ -2,23 +2,16 @@
 from typing import Callable, Generator, Sequence  # pyright: ignore[reportDeprecated]
 
 from devices.flame import Flame
-from devices.ultrasonic import HCSR04
+from devices.ultrasonic import Ultrasonics
 from libml import LibML
 from libml.op import Print
 
 
-class Ultrasonics:
-    def __init__(self, front: HCSR04, left: HCSR04, right: HCSR04) -> None:
-        self.front = front
-        self.left = left
-        self.right = right
-
-
 class UltrasonicReadings:
     def __init__(self, us: Ultrasonics) -> None:
-        self.front = us.front.distance_cm
-        self.left = us.left.distance_cm
-        self.right = us.right.distance_cm
+        self.front_cm = us.front_cm
+        self.left_cm = us.left_cm
+        self.right_cm = us.right_cm
 
 
 class Inputs:
@@ -46,5 +39,4 @@ class Outputs:
         self.servo_degrees = servo_degrees
 
 
-State = Callable[[], "Routine"]
-Routine = Generator[Outputs, Inputs, State]
+Routine = Generator[Outputs, Inputs, "Routine"]

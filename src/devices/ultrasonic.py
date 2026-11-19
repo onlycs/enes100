@@ -6,19 +6,40 @@ from time import ticks_diff, ticks_ms
 import rp2
 from machine import Pin
 
-# 1 MHz PIO clock; 2 cycles per echo-count iteration
 _COUNT = 15_000  # 30 ms timeout
 
 
 @rp2.asm_pio(set_init=rp2.PIO.OUT_LOW)
-def _hcsr04_pio():
-    pull(block)  # Load timeout counter into OSR
-
+def _trigger_pio():
     wrap_target()
 
     # 10 us trigger pulse
     set(pins, 1)[9]
     set(pins, 0)
+
+    # ~65.6 ms between measurements
+    set(y, 31)
+
+    label("outer")
+    set(x, 31)
+
+    label("inner")
+    nop()[31]
+    jmp(x_dec, "inner")[31]
+    jmp(y_dec, "outer")
+
+    wrap()
+
+
+@rp2.asm_pio()
+def _echo_pio():
+    pull(block)  # Load timeout counter into OSR
+
+    wrap_target()
+
+    # Sync to the shared trigger: wait for its falling edge
+    wait(1, pin, 0)
+    wait(0, pin, 0)
 
     # Wait up to 30 ms for rising edge
     mov(x, osr)
@@ -38,51 +59,38 @@ def _hcsr04_pio():
 
     label("count")
     jmp(x_dec, "echo_high")
-    jmp("timeout")
-
-    # Successful measurement
-    label("done")
-    mov(isr, x)
-    push(noblock)
-    irq(rel(0))
-    jmp("cooldown")
+    # falls through to timeout when x hits 0
 
     # No echo / pulse too long
     label("timeout")
     mov(isr, null)
+    jmp("publish")
+
+    # Successful measurement
+    label("done")
+    mov(isr, x)
+
+    label("publish")
     push(noblock)
     irq(rel(0))
-
-    # ~65.6 ms between measurements
-    label("cooldown")
-    set(y, 31)
-
-    label("outer")
-    set(x, 31)
-
-    label("inner")
-    nop()[31]
-    jmp(x_dec, "inner")[31]
-    jmp(y_dec, "outer")
 
     wrap()
 
 
-class HCSR04:
-    def __init__(self, trig: int, echo: int, sm_id: int = 0):
-        self._distance_cm: float = 0
-        self._pulse_us: int = 0
-        self._updated_ms: int = 0
+class _Echo:
+    """One sensor's echo timing, synced to the shared trigger pin."""
 
-        self._trig = Pin(trig, Pin.OUT, value=0)
+    def __init__(self, trig: Pin, echo: int, sm_id: int) -> None:
+        self.distance_cm: float = 0.0
+        self.pulse_us: int = 0
+        self.updated_ms: int = ticks_ms()
+
         self._echo = Pin(echo, Pin.IN)
-
         self._sm = rp2.StateMachine(
             sm_id,
-            _hcsr04_pio,
+            _echo_pio,
             freq=1_000_000,
-            set_base=self._trig,
-            in_base=self._echo,
+            in_base=trig,
             jmp_pin=self._echo,
         )
 
@@ -90,33 +98,80 @@ class HCSR04:
         self._sm.put(_COUNT)
         self._sm.active(1)
 
-    def _on_measurement(self, sm: rp2.StateMachine):
+    def _on_measurement(self, sm: rp2.StateMachine) -> None:
         # Drain any accumulated results; keep newest
         while sm.rx_fifo():
-            remaining = sm.get()
+            remaining: int = sm.get()
 
-            self._updated_ms = ticks_ms()
+            self.updated_ms = ticks_ms()
 
             if remaining == 0:
-                self._pulse_us = 0
-                self._distance_cm = 0
+                self.pulse_us = 0
+                self.distance_cm = 0.0
             else:
-                self._pulse_us = (_COUNT - remaining) * 2
-                self._distance_cm = self._pulse_us / 58.0
+                self.pulse_us = (_COUNT - remaining) * 2
+                self.distance_cm = self.pulse_us / 58.0
 
-    @property
-    def distance_cm(self):
-        return self._distance_cm
-
-    @property
-    def pulse_us(self):
-        return self._pulse_us
-
-    @property
-    def age_ms(self):
-        return ticks_diff(ticks_ms(), self._updated_ms)
-
-    def deinit(self):
+    def deinit(self) -> None:
         self._sm.irq(handler=None)
         self._sm.active(0)
-        self._trig.value(0)
+
+
+class Ultrasonics:
+    """Front/left/right HC-SR04s sharing one trigger pin.
+
+    Uses 4 consecutive state machines starting at first_sm
+    (trigger, front, left, right).
+    """
+
+    def __init__(
+        self,
+        *,
+        trig: int,
+        front: int,
+        left: int,
+        right: int,
+        first_sm: int = 0,
+    ) -> None:
+        self._trig = Pin(trig, Pin.OUT, value=0)
+        self._trigger_sm = rp2.StateMachine(
+            first_sm,
+            _trigger_pio,
+            freq=1_000_000,
+            set_base=self._trig,
+        )
+
+        self._front = _Echo(self._trig, front, first_sm + 1)
+        self._left = _Echo(self._trig, left, first_sm + 2)
+        self._right = _Echo(self._trig, right, first_sm + 3)
+
+        self._trigger_sm.active(1)
+
+    @property
+    def front_cm(self) -> float:
+        return self._front.distance_cm
+
+    @property
+    def left_cm(self) -> float:
+        return self._left.distance_cm
+
+    @property
+    def right_cm(self) -> float:
+        return self._right.distance_cm
+
+    @property
+    def age_ms(self) -> int:
+        """Age of the stalest reading."""
+        now = ticks_ms()
+        return max(
+            ticks_diff(now, self._front.updated_ms),
+            ticks_diff(now, self._left.updated_ms),
+            ticks_diff(now, self._right.updated_ms),
+        )
+
+    def deinit(self) -> None:
+        self._trigger_sm.active(0)
+        for echo in (self._front, self._left, self._right):
+            echo.deinit()
+
+        self._trig.init(Pin.OUT, value=0)

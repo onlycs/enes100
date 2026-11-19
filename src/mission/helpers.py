@@ -1,4 +1,4 @@
-from math import atan2, cos, degrees, pi, radians, sin, tau
+from math import atan2, cos, degrees, pi, radians, sin, sqrt, tau
 from typing import override
 
 from PID import PID
@@ -54,6 +54,9 @@ class Transform2d:
 
     def atan2(self) -> "Rotation2d":
         return Rotation2d(atan2(self.y, self.x))
+
+    def hypot(self) -> float:
+        return sqrt(self.x**2 + self.y**2)
 
     @override
     def __str__(self) -> str:
@@ -135,8 +138,8 @@ Rotation2d.THREE_QUARTER = Rotation2d.QUARTER + Rotation2d.HALF
 
 class Pose2d:
     def __init__(self, t: Transform2d, r: Rotation2d):
-        self.t = t
-        self.r = r
+        self.transform = t
+        self.rotate = r
 
     @staticmethod
     def from_trio(x: float, y: float, theta: float) -> "Pose2d":
@@ -148,47 +151,47 @@ class Pose2d:
         elif isinstance(other, Rotation2d):
             return self + Pose2d(Transform2d.ZERO, other)
         else:
-            return Pose2d(self.t + other.t, self.r + other.r)
+            return Pose2d(self.transform + other.transform, self.rotate + other.rotate)
 
     def __sub__(self, other: "Rotation2d | Transform2d | Pose2d") -> "Pose2d":
         if not isinstance(other, Pose2d):
             return self + -other
         else:
-            return Pose2d(self.t - other.t, self.r - other.r)
+            return Pose2d(self.transform - other.transform, self.rotate - other.rotate)
 
     def __mul__(self, other: "float | Transform2d") -> "Pose2d":
         return (
-            Pose2d(self.t * other, self.r * other)
+            Pose2d(self.transform * other, self.rotate * other)
             if isinstance(other, float)
-            else Pose2d(self.t * other, self.r)
+            else Pose2d(self.transform * other, self.rotate)
         )
 
     def __truediv__(self, other: "float | Transform2d") -> "Pose2d":
         return (
-            Pose2d(self.t / other, self.r / other)
+            Pose2d(self.transform / other, self.rotate / other)
             if isinstance(other, float)
-            else Pose2d(self.t / other, self.r)
+            else Pose2d(self.transform / other, self.rotate)
         )
 
     @property
     def trio(self) -> tuple[float, float, float]:
-        return self.t.x, self.t.y, self.r.radians
+        return self.transform.x, self.transform.y, self.rotate.radians
 
     @property
     def x(self) -> float:
-        return self.t.x
+        return self.transform.x
 
     @property
     def y(self) -> float:
-        return self.t.y
+        return self.transform.y
 
     @property
     def radians(self) -> float:
-        return self.r.theta
+        return self.rotate.theta
 
     @property
     def theta(self) -> Rotation2d:
-        return self.r
+        return self.rotate
 
     @override
     def __str__(self) -> str:

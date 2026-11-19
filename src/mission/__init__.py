@@ -1,19 +1,24 @@
+# ruff: noqa: UP035
+
 import asyncio
 import logging
 import time
+from typing import Callable
 
 from devices.flame import Flame
 from devices.motor import Drivetrain
 from devices.servo import DS3218
+from devices.ultrasonic import Ultrasonics
 from libml import LibML
-from mission.io import Inputs, Outputs, Routine, State, Ultrasonics
+from mission.io import Inputs, Outputs, Routine
+from mission.states import to_mission_site
 
 EVENT_LOOP_MS = 20
 
 
-def _initial_state(actual: State) -> Routine:
+def _initial_state(actual: Callable[[], Routine]) -> Routine:
     yield Outputs()
-    return actual
+    return actual()
 
 
 class StateMachine:
@@ -26,9 +31,8 @@ class StateMachine:
         us: Ultrasonics,
         drive: Drivetrain,
         servo: DS3218,
-        initial: State,
     ):
-        self.state = _initial_state(initial)
+        self.state = _initial_state(to_mission_site)
         self.ml = ml
         self.flames = flames
         self.us = us
